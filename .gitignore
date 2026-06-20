@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+reports/
+artifacts/
+*.pdf
+
+# Ruflo / swarm runtime stores (local, not source)
+ruvector.db
+*.db
+.swarm/
+.hive-mind/
+.ruflo/
+.claude-flow/
+
+# Machine-local Claude Code settings
+.claude/settings.local.json

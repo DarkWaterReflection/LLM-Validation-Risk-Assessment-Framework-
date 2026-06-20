@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-validation-platform"
+version = "0.1.0"
+description = "Production-grade LLM/RAG Model Validation & Risk Reporting Platform aligned to Model Risk Management (SR 11-7 / NIST AI RMF / EU AI Act)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Model Risk Management Group (MRMG)" }]
+
+# Core deps are intentionally lightweight so the deterministic engine + report
+# generation run with NO API keys. Heavy LLM-eval deps live in optional extras.
+dependencies = [
+    "pandas>=2.1",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+llm = [
+    "ragas>=0.2",
+    "langchain>=0.2",
+    "langchain-anthropic>=0.1",
+    "langchain-openai>=0.1",
+    "langchain-huggingface>=0.0.3",
+    "llama-index>=0.10",
+    "giskard>=2.14",
+    "deepeval>=1.0",
+    "sentence-transformers>=2.7",
+]
+viz = ["plotly>=5.20", "seaborn>=0.13", "matplotlib>=3.8"]
+dashboard = ["streamlit>=1.33", "plotly>=5.20"]
+report = ["weasyprint>=61"]  # optional HTML->PDF
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "mypy>=1.9", "ruff>=0.4"]
+
+[project.scripts]
+mrm-validate = "llm_validation_platform.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true

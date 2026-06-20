@@ -1,0 +1,109 @@
+# Model Validation Report — {{ r.candidate_model }}
+
+**Classification:** Confidential — Model Risk Management Group (MRMG)
+**Run ID:** `{{ r.run_id }}`  |  **Config fingerprint:** `{{ r.config_fingerprint }}`
+**Generated (UTC):** {{ r.generated_at.strftime("%Y-%m-%d %H:%M:%S") }}
+**System under validation:** {{ r.candidate_model }} on `{{ r.rag_pipeline }}`
+
+---
+
+## 1. Executive Summary
+
+This report documents the independent validation of the **{{ r.candidate_model }}**
+LLM/RAG system. Based on the evidence gathered across faithfulness, bias, robustness,
+safety, and performance testing, the composite model-risk rating is:
+
+> ### Composite Risk: **{{ r.composite_level.value }}** ({{ r.composite_score }}/100)
+>
+> **Validation Opinion:** {{ r.validation_opinion }}
+
+| Risk Dimension | Score (0–100) | Rating |
+|---|---|---|
+{% for d in r.dimension_risks %}| {{ d.dimension.value }} | {{ d.score }} | **{{ d.level.value }}** |
+{% endfor %}
+
+## 2. Model Overview
+
+- **Model / system:** {{ r.candidate_model }}
+- **Retrieval pipeline:** {{ r.rag_pipeline }}
+- **Intended use:** Decision-support over enterprise knowledge (RAG question answering).
+- **Validation type:** Independent, full-scope initial validation.
+
+## 3. Validation Objectives
+
+Provide effective challenge to the model owner's development by independently
+assessing fitness for purpose, conceptual soundness, and residual model risk,
+consistent with SR 11-7, the NIST AI RMF, and applicable internal policy.
+
+## 4. Scope & Assumptions
+
+- **In scope:** Faithfulness/hallucination, bias/fairness, robustness, safety/security,
+  performance, and governance documentation.
+- **Out of scope:** Infrastructure pen-testing, data-pipeline lineage audit.
+- **Key assumption:** Evaluation datasets are representative of production traffic.
+
+## 5. Methodology
+
+Each dimension is measured by a dedicated evaluation module producing transparent,
+reproducible metrics. Metrics are mapped to a 0–100 residual-risk score via
+documented transforms and banded into Low/Moderate/High/Critical. A weighted
+composite is computed, with a critical-override rule.
+
+## 6. Data Description
+
+{% for m in r.modules %}- **{{ m.module }}**: {{ m.n_records }} evaluation records.
+{% endfor %}
+
+## 7–11. Dimensional Assessments
+
+{% for d in r.dimension_risks %}
+### {{ d.dimension.value }} — {{ d.level.value }} ({{ d.score }}/100)
+
+{{ d.rationale }}
+
+Contributing metrics: {% for k, v in d.contributing_metrics.items() %}`{{ k }}={{ v }}`{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% set mod = r.module_by_dim(d.dimension) %}
+{% if mod %}{% if mod.failures %}**Representative findings ({{ mod.failures|length }} total):**
+{% for f in mod.failures[:3] %}
+- {{ f.get('explanation', f) }}
+{% endfor %}{% else %}No threshold breaches recorded.{% endif %}{% endif %}
+{% endfor %}
+
+## 12. Risk Rating Framework
+
+Residual-risk bands: **Low** 0–24 · **Moderate** 25–49 · **High** 50–74 · **Critical** 75–100.
+Composite is a documented weighted average across dimensions; any Critical dimension
+floors the composite at High.
+
+## 13. Findings & Observations
+
+{% for d in r.dimension_risks %}{% if d.level.ordinal >= 1 %}- **[{{ d.level.value }}] {{ d.dimension.value }}:** {{ d.rationale }}
+{% endif %}{% endfor %}
+
+## 14. Key Risks Identified
+
+{% set top = r.dimension_risks|sort(attribute='score', reverse=True) %}
+{% for d in top[:3] %}{{ loop.index }}. **{{ d.dimension.value }}** ({{ d.level.value }}) — {{ d.rationale }}
+{% endfor %}
+
+## 15. Limitations
+
+Deterministic baseline evaluators use lexical-overlap proxies when LLM-judge
+evaluators are disabled; absolute metric values should be interpreted relative to
+the documented thresholds rather than as ground-truth semantic measures.
+
+## 16. Remediation Recommendations
+
+{% for d in r.dimension_risks %}{% if d.level.ordinal >= 2 %}- **{{ d.dimension.value }}:** Prioritised remediation required before production sign-off.
+{% endif %}{% endfor %}
+- Establish ongoing monitoring with drift alerts on each dimension.
+- Re-validate after remediation and at each material model/data change.
+
+## 17. Final Validation Opinion
+
+**{{ r.composite_level.value }} residual risk.** {{ r.validation_opinion }}
+
+---
+*Prepared by the Model Risk Management Group. This report is reproducible from
+run id `{{ r.run_id }}` and config fingerprint `{{ r.config_fingerprint }}`.*

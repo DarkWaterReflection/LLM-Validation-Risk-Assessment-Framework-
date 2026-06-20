@@ -1,0 +1,107 @@
+# Ruflo Agent Swarm topology for the LLM Model Validation & Risk Platform.
+# Coordination: hierarchical (Lead Validator orchestrates specialists), with a
+# QA gate before reporting. Each agent maps to one stage of the deterministic
+# ValidationPipeline so results are reproducible regardless of execution path.
+
+swarm:
+  name: mrm-llm-validation
+  topology: hierarchical
+  coordinator: lead-validator
+  shared_memory: agentdb            # cross-agent context store
+  consensus: qa-gate                # QA agent must pass before reporting
+
+agents:
+  - id: lead-validator
+    role: orchestrator
+    responsibilities:
+      - Decompose the validation engagement into module tasks.
+      - Sequence agents, enforce the QA gate, own the final package.
+    inputs: [validation_request, model_card, datasets]
+    outputs: [validation_result, report]
+    dependencies: []
+    success_criteria: All modules complete; QA passed; report signed off.
+
+  - id: data-prep-agent
+    role: worker
+    responsibilities:
+      - Validate/normalise inputs into EvalRecord / MatchedPair / probes.
+      - Enforce schema, dedupe, flag PII (aidefence_has_pii).
+    inputs: [raw_datasets, rag_outputs, retrieved_contexts]
+    outputs: [normalised_fixtures]
+    dependencies: [lead-validator]
+    success_criteria: 100% records schema-valid; provenance recorded.
+
+  - id: faithfulness-agent
+    role: worker
+    module: evaluations.faithfulness
+    inputs: [normalised_fixtures]
+    outputs: [faithfulness_module_result]
+    dependencies: [data-prep-agent]
+    success_criteria: RAGAS-shaped metrics + failure list produced.
+
+  - id: bias-agent
+    role: worker
+    module: evaluations.bias
+    inputs: [matched_pairs]
+    outputs: [bias_module_result]
+    dependencies: [data-prep-agent]
+    success_criteria: Fairness score + disparate-treatment findings produced.
+
+  - id: robustness-agent
+    role: worker
+    module: evaluations.robustness
+    inputs: [robustness_probes]
+    outputs: [robustness_module_result]
+    dependencies: [data-prep-agent]
+    success_criteria: Stability/consistency scores + drift findings produced.
+
+  - id: safety-agent
+    role: worker
+    module: evaluations.safety
+    inputs: [safety_probes]
+    outputs: [safety_module_result]
+    dependencies: [data-prep-agent]
+    success_criteria: Violation rate, refusal consistency, leakage count produced.
+
+  - id: risk-scoring-agent
+    role: aggregator
+    module: risk_scoring.engine
+    inputs: [all_module_results, governance_completeness]
+    outputs: [dimension_risks, composite_rating]
+    dependencies: [faithfulness-agent, bias-agent, robustness-agent, safety-agent]
+    success_criteria: Deterministic composite rating with rationales.
+
+  - id: validation-qa-agent
+    role: reviewer
+    responsibilities:
+      - Re-run risk engine on the same inputs; assert reproducibility.
+      - Challenge thresholds; verify findings trace to evidence.
+    inputs: [validation_result]
+    outputs: [qa_signoff]
+    dependencies: [risk-scoring-agent]
+    success_criteria: Reproduced score matches; no untraceable findings.
+
+  - id: reporting-agent
+    role: worker
+    module: reporting.report_builder
+    inputs: [validation_result, qa_signoff]
+    outputs: [validation_report_md, validation_report_pdf]
+    dependencies: [validation-qa-agent]
+    success_criteria: 17-section report renders; fingerprint embedded.
+
+  - id: dashboard-agent
+    role: worker
+    module: dashboards.app
+    inputs: [validation_result]
+    outputs: [streamlit_dashboard]
+    dependencies: [risk-scoring-agent]
+    success_criteria: Interactive scorecard + drill-down available.
+
+  - id: documentation-agent
+    role: worker
+    responsibilities:
+      - Maintain model card, methodology docs, and audit trail.
+    inputs: [validation_result, config_fingerprint]
+    outputs: [governance_pack]
+    dependencies: [reporting-agent]
+    success_criteria: Governance pack complete and version-stamped.
